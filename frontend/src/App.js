@@ -16,8 +16,11 @@ function App() {
   // Your existing app state
   const [baseUrl, setBaseUrl] = useState('');
   const [discoveredCategories, setDiscoveredCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [scrapedCategories, setScrapedCategories] = useState([]); // Track what's been scraped
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isScrapingAll, setIsScrapingAll] = useState(false);
+  const [isScrapingSelected, setIsScrapingSelected] = useState(false);
   const [results, setResults] = useState('');
   const [status, setStatus] = useState('');
   const [scrapingMethod, setScrapingMethod] = useState('auto'); // 'auto' or 'manual'
@@ -29,7 +32,20 @@ function App() {
       setAuthToken(savedToken);
       setIsAuthenticated(true);
     }
-  }, []);
+    
+    // Load previously scraped categories for this URL
+    const savedScrapedCategories = localStorage.getItem(`scrapedCategories_${baseUrl}`);
+    if (savedScrapedCategories) {
+      setScrapedCategories(JSON.parse(savedScrapedCategories));
+    }
+  }, [baseUrl]);
+
+  // Save scraped categories when they change
+  useEffect(() => {
+    if (baseUrl && scrapedCategories.length > 0) {
+      localStorage.setItem(`scrapedCategories_${baseUrl}`, JSON.stringify(scrapedCategories));
+    }
+  }, [scrapedCategories, baseUrl]);
 
   // Configure axios with authentication headers
   const getAuthHeaders = () => ({
@@ -70,6 +86,8 @@ function App() {
     // Reset all app state
     setBaseUrl('');
     setDiscoveredCategories([]);
+    setSelectedCategories([]);
+    setScrapedCategories([]);
     setResults('');
     setStatus('');
     setScrapingMethod('auto');
@@ -94,6 +112,14 @@ function App() {
       if (response.data.success) {
         setDiscoveredCategories(response.data.categories);
         setStatus(`✅ Discovered ${response.data.categories.length} categories!`);
+        
+        // Load previously scraped categories for this URL
+        const savedScrapedCategories = localStorage.getItem(`scrapedCategories_${baseUrl}`);
+        if (savedScrapedCategories) {
+          setScrapedCategories(JSON.parse(savedScrapedCategories));
+        } else {
+          setScrapedCategories([]);
+        }
       } else {
         setStatus('❌ Error: ' + response.data.error);
       }
@@ -134,6 +160,10 @@ function App() {
         if (formattedResults && formattedResults.trim() !== '') {
           setResults(formattedResults);
           setStatus(`✅ Auto-scraped ${response.data.totalCategories} categories successfully!`);
+          
+          // Mark all categories as scraped
+          const allCategoryNames = response.data.discoveredCategories || [];
+          setScrapedCategories(allCategoryNames);
         } else {
           setStatus('⚠️ Scraping completed but no results were formatted.');
           setResults('No results were formatted. The fair may not have results posted yet.');
@@ -152,6 +182,94 @@ function App() {
     } finally {
       setIsScrapingAll(false);
     }
+  };
+
+  const handleScrapeSelected = async () => {
+    if (selectedCategories.length === 0) {
+      setStatus('Please select at least one category to scrape');
+      return;
+    }
+
+    setIsScrapingSelected(true);
+    setStatus(`🎯 Scraping ${selectedCategories.length} selected categories...`);
+    setResults('');
+
+    try {
+      // Get the full category objects for selected categories
+      const categoriesToScrape = discoveredCategories.filter(cat => 
+        selectedCategories.includes(cat.displayName)
+      );
+
+      const response = await axios.post(`${BACKEND_URL}/scrape-all`, 
+        { 
+          baseUrl,
+          categories: categoriesToScrape // Send selected categories to backend
+        }, 
+        { headers: getAuthHeaders() }
+      );
+
+      console.log('Selected scrape response:', response.data);
+
+      if (response.data.success) {
+        const formattedResults = formatResultsForNewspaper(response.data.data);
+        
+        if (formattedResults && formattedResults.trim() !== '') {
+          setResults(formattedResults);
+          setStatus(`✅ Successfully scraped ${selectedCategories.length} selected categories!`);
+          
+          // Add newly scraped categories to the scraped list
+          const newlyScraped = [...new Set([...scrapedCategories, ...selectedCategories])];
+          setScrapedCategories(newlyScraped);
+          
+          // Clear selection after successful scrape
+          setSelectedCategories([]);
+        } else {
+          setStatus('⚠️ Scraping completed but no results were formatted.');
+          setResults('No results were formatted. The selected categories may not have results posted yet.');
+        }
+      } else {
+        setStatus('❌ Error: ' + response.data.error);
+      }
+    } catch (error) {
+      console.error('Selected scraping error:', error);
+      if (error.response?.status === 401) {
+        setAuthError('Session expired. Please login again.');
+        handleLogout();
+      } else {
+        setStatus('❌ Error: ' + (error.response?.data?.error || error.message));
+      }
+    } finally {
+      setIsScrapingSelected(false);
+    }
+  };
+
+  const handleCategoryToggle = (categoryName) => {
+    if (selectedCategories.includes(categoryName)) {
+      setSelectedCategories(selectedCategories.filter(name => name !== categoryName));
+    } else {
+      setSelectedCategories([...selectedCategories, categoryName]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedCategories.length === discoveredCategories.length) {
+      setSelectedCategories([]);
+    } else {
+      setSelectedCategories(discoveredCategories.map(cat => cat.displayName));
+    }
+  };
+
+  const handleSelectNew = () => {
+    const newCategories = discoveredCategories
+      .filter(cat => !scrapedCategories.includes(cat.displayName))
+      .map(cat => cat.displayName);
+    setSelectedCategories(newCategories);
+  };
+
+  const clearScrapedHistory = () => {
+    setScrapedCategories([]);
+    localStorage.removeItem(`scrapedCategories_${baseUrl}`);
+    setStatus('✅ Scraped history cleared');
   };
 
   const formatResultsForNewspaper = (data) => {
@@ -275,7 +393,7 @@ function App() {
     );
   }
 
-  // Main App Component (your existing UI)
+  // Main App Component
   return (
     <div className="App">
       <div className="container">
@@ -292,7 +410,12 @@ function App() {
           <input
             type="text"
             value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
+            onChange={(e) => {
+              setBaseUrl(e.target.value);
+              setDiscoveredCategories([]);
+              setSelectedCategories([]);
+              setScrapedCategories([]);
+            }}
             placeholder="Enter any FairEntry.com results URL (e.g., https://fairentry.com/Fair/Results/12345)"
           />
           
@@ -348,16 +471,68 @@ function App() {
 
               {discoveredCategories.length > 0 && (
                 <div className="discovered-categories">
-                  <h3>📋 Discovered Categories ({discoveredCategories.length}):</h3>
-                  <div className="category-list">
-                    {discoveredCategories.map((category, index) => (
-                      <div key={index} className="category-item-discovered">
-                        <span className="category-name">{category.displayName}</span>
-                        <span className="category-full">{category.text}</span>
+                  <div className="categories-header">
+                    <h3>📋 Discovered Categories ({discoveredCategories.length}):</h3>
+                    {scrapedCategories.length > 0 && (
+                      <div className="scraped-info">
+                        <span>Previously scraped: {scrapedCategories.length}</span>
+                        <button onClick={clearScrapedHistory} className="clear-history-btn">
+                          Clear History
+                        </button>
                       </div>
-                    ))}
+                    )}
                   </div>
-                  <p className="note">Manual selection coming soon - for now use Auto-Scrape mode!</p>
+                  
+                  <div className="category-controls">
+                    <button 
+                      onClick={handleSelectAll} 
+                      className="control-button"
+                      disabled={isScrapingSelected}
+                    >
+                      {selectedCategories.length === discoveredCategories.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                    <button 
+                      onClick={handleSelectNew} 
+                      className="control-button select-new"
+                      disabled={isScrapingSelected}
+                    >
+                      Select New Only ({discoveredCategories.filter(cat => !scrapedCategories.includes(cat.displayName)).length})
+                    </button>
+                    <button 
+                      onClick={handleScrapeSelected} 
+                      disabled={isScrapingSelected || selectedCategories.length === 0}
+                      className="scrape-button scrape-selected"
+                    >
+                      {isScrapingSelected ? `🔄 Scraping ${selectedCategories.length}...` : `🎯 Scrape Selected (${selectedCategories.length})`}
+                    </button>
+                  </div>
+
+                  <div className="category-list">
+                    {discoveredCategories.map((category, index) => {
+                      const isScraped = scrapedCategories.includes(category.displayName);
+                      const isSelected = selectedCategories.includes(category.displayName);
+                      
+                      return (
+                        <div key={index} className={`category-item-selectable ${isScraped ? 'scraped' : ''}`}>
+                          <label className="category-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleCategoryToggle(category.displayName)}
+                              disabled={isScrapingSelected}
+                            />
+                            <div className="category-info">
+                              <span className="category-name">
+                                {category.displayName}
+                                {isScraped && <span className="scraped-badge">✓ Scraped</span>}
+                              </span>
+                              <span className="category-full">{category.text}</span>
+                            </div>
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

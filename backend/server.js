@@ -210,21 +210,34 @@ app.post('/discover-categories', requireAuth, async (req, res) => {
   }
 });
 
-// Scrape all discovered categories automatically (PROTECTED)
+// Scrape all discovered categories automatically (PROTECTED) - ENHANCED VERSION
 app.post('/scrape-all', requireAuth, async (req, res) => {
-  const { baseUrl } = req.body;
+  const { baseUrl, categories } = req.body;
   
   if (!baseUrl) {
     return res.status(400).json({ error: 'Base URL is required' });
   }
 
   try {
-    console.log('1. Discovering categories...');
-    const discoveredCategories = await discoverCategories(baseUrl);
-    console.log(`2. Found ${discoveredCategories.length} categories`);
+    let discoveredCategories;
+    let rawResults;
     
-    console.log('3. Starting comprehensive scrape...');
-    const rawResults = await scrapeDiscoveredCategories(baseUrl, discoveredCategories);
+    if (categories && Array.isArray(categories) && categories.length > 0) {
+      // Manual selection mode - scrape only specified categories
+      console.log(`1. Using provided categories (${categories.length})`);
+      discoveredCategories = categories;
+      console.log('2. Starting selective scrape...');
+      rawResults = await scrapeDiscoveredCategories(baseUrl, discoveredCategories);
+    } else {
+      // Auto mode - discover all categories first
+      console.log('1. Discovering categories...');
+      discoveredCategories = await discoverCategories(baseUrl);
+      console.log(`2. Found ${discoveredCategories.length} categories`);
+      
+      console.log('3. Starting comprehensive scrape...');
+      rawResults = await scrapeDiscoveredCategories(baseUrl, discoveredCategories);
+    }
+    
     console.log('4. Raw scrape complete');
     
     const transformedData = transformScrapedData(rawResults);
@@ -237,11 +250,15 @@ app.post('/scrape-all', requireAuth, async (req, res) => {
       success: true, 
       data: cleanData, 
       discoveredCategories: discoveredCategories.map(cat => cat.displayName),
-      totalCategories: discoveredCategories.length 
+      totalCategories: discoveredCategories.length,
+      mode: categories ? 'selective' : 'auto'
     });
   } catch (error) {
-    console.error('Auto-scraping error:', error);
-    res.status(500).json({ error: 'Failed to auto-scrape fair', details: error.message });
+    console.error('Scraping error:', error);
+    res.status(500).json({ 
+      error: categories ? 'Failed to scrape selected categories' : 'Failed to auto-scrape fair', 
+      details: error.message 
+    });
   }
 });
 
