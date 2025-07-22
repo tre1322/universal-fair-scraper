@@ -198,4 +198,195 @@ function App() {
       subcategoryNames.forEach(subcategoryName => {
         const entries = categoryData.subcategories[subcategoryName];
         
-        if (!Array.
+        if (!Array.isArray(entries) || entries.length === 0) {
+          return;
+        }
+        
+        const formattedEntries = entries.map(entry => {
+          let result = entry.name || 'Unknown';
+          
+          if (entry.club && entry.club.trim() !== '') {
+            result += `, ${entry.club}`;
+          }
+          
+          if (entry.placing && entry.placing.trim() !== '') {
+            result += `, ${entry.placing}`;
+          }
+          
+          if (entry.awards && entry.awards.trim() !== '') {
+            result += `, ${entry.awards}`;
+          }
+          
+          if (entry.ribbon && entry.ribbon.trim() !== '') {
+            result += ` - ${entry.ribbon}`;
+          }
+          
+          return result;
+        }).filter(entry => entry && entry !== 'Unknown');
+        
+        if (formattedEntries.length > 0) {
+          if (subcategoryName !== 'General') {
+            formatted += `${subcategoryName}: ${formattedEntries.join(' ; ')}\n`;
+          } else {
+            formatted += `${formattedEntries.join(' ; ')}\n`;
+          }
+        }
+      });
+      
+      formatted += '\n';
+    });
+    
+    return formatted;
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(results);
+    setStatus('✅ Results copied to clipboard!');
+  };
+
+  // Login Form Component
+  if (!isAuthenticated) {
+    return (
+      <div className="App">
+        <div className="container">
+          <h1>🏆 Universal Fair Results Scraper</h1>
+          <div className="auth-container">
+            <h2>🔒 Please Enter Password</h2>
+            <p className="auth-subtitle">Authentication required to access the scraper</p>
+            <form onSubmit={handleLogin} className="auth-form">
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={authLoading}
+                required
+                className="auth-input"
+              />
+              <button type="submit" disabled={authLoading} className="auth-button">
+                {authLoading ? '🔄 Verifying...' : '🔐 Login'}
+              </button>
+            </form>
+            {authError && <div className="auth-error">❌ {authError}</div>}
+            {authSuccess && <div className="auth-success">✅ {authSuccess}</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main App Component (your existing UI)
+  return (
+    <div className="App">
+      <div className="container">
+        <div className="header-section">
+          <h1>🏆 Universal Fair Results Scraper</h1>
+          <button onClick={handleLogout} className="logout-button">
+            🚪 Logout
+          </button>
+        </div>
+        <p className="subtitle">Works with any FairEntry.com fair - automatically discovers all categories!</p>
+        
+        <div className="input-section">
+          <label>Fair Results URL:</label>
+          <input
+            type="text"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="Enter any FairEntry.com results URL (e.g., https://fairentry.com/Fair/Results/12345)"
+          />
+          
+          <div className="method-selector">
+            <h3>Scraping Method:</h3>
+            <div className="radio-group">
+              <label>
+                <input
+                  type="radio"
+                  value="auto"
+                  checked={scrapingMethod === 'auto'}
+                  onChange={(e) => setScrapingMethod(e.target.value)}
+                />
+                🤖 Auto-Scrape Everything (Recommended)
+                <span className="method-description">Automatically discovers and scrapes all categories</span>
+              </label>
+              
+              <label>
+                <input
+                  type="radio"
+                  value="manual"
+                  checked={scrapingMethod === 'manual'}
+                  onChange={(e) => setScrapingMethod(e.target.value)}
+                />
+                🎯 Manual Category Selection
+                <span className="method-description">Discover categories first, then choose which to scrape</span>
+              </label>
+            </div>
+          </div>
+
+          {scrapingMethod === 'auto' && (
+            <div className="auto-scrape-section">
+              <button 
+                onClick={handleScrapeAll} 
+                disabled={isScrapingAll || !baseUrl}
+                className="scrape-button auto-scrape"
+              >
+                {isScrapingAll ? '🔄 Auto-Scraping Entire Fair...' : '🚀 Auto-Scrape All Categories'}
+              </button>
+              <p className="note">This will automatically discover and scrape all available categories. May take 5-10 minutes for large fairs.</p>
+            </div>
+          )}
+
+          {scrapingMethod === 'manual' && (
+            <div className="manual-scrape-section">
+              <button 
+                onClick={handleDiscoverCategories} 
+                disabled={isDiscovering || !baseUrl}
+                className="discover-button"
+              >
+                {isDiscovering ? '🔍 Discovering...' : '🔍 Discover Available Categories'}
+              </button>
+
+              {discoveredCategories.length > 0 && (
+                <div className="discovered-categories">
+                  <h3>📋 Discovered Categories ({discoveredCategories.length}):</h3>
+                  <div className="category-list">
+                    {discoveredCategories.map((category, index) => (
+                      <div key={index} className="category-item-discovered">
+                        <span className="category-name">{category.displayName}</span>
+                        <span className="category-full">{category.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="note">Manual selection coming soon - for now use Auto-Scrape mode!</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        
+        {status && (
+          <div className={`status ${status.includes('❌') ? 'error' : 'success'}`}>
+            {status}
+          </div>
+        )}
+        
+        {results && results.trim() !== '' && (
+          <div className="results-section">
+            <h3>📄 Formatted Results for Newspaper:</h3>
+            <div className="results-stats">
+              <p>Results ready for copy/paste into your newspaper article!</p>
+            </div>
+            <pre className="results-output">{results}</pre>
+            <button onClick={copyToClipboard} className="copy-button">
+              📋 Copy to Clipboard
+            </button>
+          </div>
+        )}
+        
+        {authError && <div className="auth-error-inline">⚠️ {authError}</div>}
+      </div>
+    </div>
+  );
+}
+
+export default App;
