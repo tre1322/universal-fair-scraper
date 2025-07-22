@@ -2,6 +2,7 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
@@ -20,29 +21,64 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Root route - API documentation
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
+
+// Password protection middleware
+const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'default-password-change-me';
+
+const requireAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ 
+      error: 'Authentication required. Please provide password.' 
+    });
+  }
+  
+  const providedPassword = authHeader.substring(7); // Remove "Bearer " prefix
+  
+  if (providedPassword !== AUTH_PASSWORD) {
+    return res.status(401).json({ 
+      error: 'Invalid password.' 
+    });
+  }
+  
+  next();
+};
+
+// Root route - API documentation (PUBLIC)
 app.get('/', (req, res) => {
   res.json({ 
     message: "Fair Results Scraper API",
     status: "running",
-    version: "1.0.0",
+    version: "2.0.0",
+    authentication: "Required for scraping endpoints. Send password in Authorization: Bearer <password> header.",
     endpoints: {
-      health: "GET /health - Check server status",
-      discoverCategories: "POST /discover-categories - Auto-discover all categories from a fair website",
-      scrapeAll: "POST /scrape-all - Automatically scrape all discovered categories",
-      scrapeManual: "POST /scrape - Manually scrape specific categories"
+      health: "GET /health - Check server status (public)",
+      authVerify: "POST /auth/verify - Verify password (public)",
+      discoverCategories: "POST /discover-categories - Auto-discover all categories from a fair website (requires auth)",
+      scrapeAll: "POST /scrape-all - Automatically scrape all discovered categories (requires auth)",
+      scrapeManual: "POST /scrape - Manually scrape specific categories (requires auth)"
     },
     usage: {
       discoverCategories: {
         method: "POST",
+        headers: { "Authorization": "Bearer your-password" },
         body: { baseUrl: "https://fair-website.com" }
       },
       scrapeAll: {
-        method: "POST", 
+        method: "POST",
+        headers: { "Authorization": "Bearer your-password" }, 
         body: { baseUrl: "https://fair-website.com" }
       },
       scrapeManual: {
         method: "POST",
+        headers: { "Authorization": "Bearer your-password" },
         body: { 
           baseUrl: "https://fair-website.com",
           categories: ["Livestock", "Agriculture"]
@@ -52,9 +88,34 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check endpoint
+// Health check endpoint (PUBLIC)
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+  res.json({ 
+    status: 'OK', 
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Authentication verification endpoint (PUBLIC)
+app.post('/auth/verify', (req, res) => {
+  const { password } = req.body;
+  
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required' });
+  }
+  
+  if (password === AUTH_PASSWORD) {
+    res.json({ 
+      success: true, 
+      message: 'Authentication successful' 
+    });
+  } else {
+    res.status(401).json({ 
+      error: 'Invalid password' 
+    });
+  }
 });
 
 // Clean data for JSON serialization
@@ -132,8 +193,8 @@ function getPuppeteerOptions() {
   };
 }
 
-// Auto-discover all available categories
-app.post('/discover-categories', async (req, res) => {
+// Auto-discover all available categories (PROTECTED)
+app.post('/discover-categories', requireAuth, async (req, res) => {
   const { baseUrl } = req.body;
   
   if (!baseUrl) {
@@ -149,8 +210,8 @@ app.post('/discover-categories', async (req, res) => {
   }
 });
 
-// Scrape all discovered categories automatically
-app.post('/scrape-all', async (req, res) => {
+// Scrape all discovered categories automatically (PROTECTED)
+app.post('/scrape-all', requireAuth, async (req, res) => {
   const { baseUrl } = req.body;
   
   if (!baseUrl) {
@@ -184,8 +245,8 @@ app.post('/scrape-all', async (req, res) => {
   }
 });
 
-// Original manual scrape endpoint (keep for backward compatibility)
-app.post('/scrape', async (req, res) => {
+// Original manual scrape endpoint (PROTECTED) - keep for backward compatibility
+app.post('/scrape', requireAuth, async (req, res) => {
   const { baseUrl, categories } = req.body;
   
   if (!baseUrl || !categories || categories.length === 0) {
@@ -580,4 +641,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${isProduction ? 'production' : 'development'}`);
   console.log(`Puppeteer headless: ${isProduction ? 'true' : 'false'}`);
+  console.log(`Auth enabled: ${AUTH_PASSWORD !== 'default-password-change-me' ? 'Yes' : 'No (using default password)'}`);
 });

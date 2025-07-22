@@ -1,3 +1,4 @@
+/* Your existing CSS - keep all of this */
 .App {
   font-family: Arial, sans-serif;
   max-width: 1200px;
@@ -144,4 +145,339 @@ input[type="text"] {
 
 .copy-button:hover {
   background: #218838;
+}
+
+/* ========================================= */
+/* NEW AUTHENTICATION STYLES - ADD BELOW */
+/* ========================================= */
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logout-button {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+
+.logout-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+}
+
+.subtitle {
+  text-align: center;
+  color: #7f8c8d;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+.method-selector {
+  margin: 25px 0;
+  padding: 20px;
+  background: #e8f5e8;
+  border-radius: 8px;
+}
+
+.method-selector h3 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.radio-group label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 15px;
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.radio-group label:hover {
+  border-color: #3498db;
+  background: #f8f9ff;
+}
+
+.radio-group input[type="radio"] {
+  margin-right: 10px;
+  margin-bottom: 5px;
+}
+
+.method-description {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: normal;
+  margin-left: 25px;
+}
+
+.auto-scrape-section, .manual-scrape-section {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f0f8ff;
+  border-radius: 8px;
+}
+
+.auto-scrape {
+  background: #27ae60 !important;
+  font-size: 18px !important;
+  padding: 15px 30px !important;
+}
+
+.auto-scrape:hover:not(:disabled) {
+  background: #219a52 !important;
+}
+
+.discover-button {
+  background: #e67e22;
+  color: white;
+  padding: 12px 25px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  margin: 10px 0;
+  transition: background 0.3s;
+}
+
+.discover-button:hover:not(:disabled) {
+  background: #d35400;
+}
+
+.discover-button:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.discovered-categories {
+  margin-top: 20px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.category-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 15px 0;
+}
+
+.category-item-discovered {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+}
+
+.category-name {
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.category-full {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.note {
+  background: #fff3cd;
+  color: #856404;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #ffeaa7;
+  font-style: italic;
+  margin-top: 15px;
+}
+
+.results-stats {
+  background: #d1ecf1;
+  color: #0c5460;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-weight: bold;
+}
+
+/* Authentication Container */
+.auth-container {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.95));
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 40px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  max-width: 450px;
+  margin: 50px auto;
+  text-align: center;
+}
+
+.auth-container h2 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-size: 1.8rem;
+}
+
+.auth-subtitle {
+  color: #7f8c8d;
+  margin-bottom: 30px;
+  font-size: 1rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.auth-input {
+  padding: 15px;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.auth-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-button {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.auth-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+}
+
+.auth-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.auth-error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #f5c6cb;
+  margin-top: 20px;
+  font-weight: bold;
+}
+
+.auth-success {
+  background: #d4edda;
+  color: #155724;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #c3e6cb;
+  margin-top: 20px;
+  font-weight: bold;
+}
+
+.auth-error-inline {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #f5c6cb;
+  margin: 20px 0;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .header-section {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .header-section h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0;
+  }
+  
+  .auth-container {
+    margin: 20px;
+    padding: 30px 20px;
+  }
+  
+  .logout-button {
+    width: 100%;
+    padding: 12px;
+  }
+  
+  .radio-group {
+    gap: 10px;
+  }
+  
+  .method-description {
+    margin-left: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .App {
+    padding: 10px;
+  }
+  
+  .container {
+    padding: 20px;
+  }
+  
+  .auth-container {
+    padding: 25px 15px;
+  }
+  
+  .auth-input, .auth-button {
+    padding: 12px;
+    font-size: 1rem;
+  }
+  
+  .scrape-button, .auto-scrape {
+    padding: 12px 20px !important;
+    font-size: 16px !important;
+  }
 }

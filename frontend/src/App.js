@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://universal-fair-scraper-production.up.railway.app';
 
 function App() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authToken, setAuthToken] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+  
+  // Your existing app state
   const [baseUrl, setBaseUrl] = useState('');
   const [discoveredCategories, setDiscoveredCategories] = useState([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
@@ -12,6 +21,59 @@ function App() {
   const [results, setResults] = useState('');
   const [status, setStatus] = useState('');
   const [scrapingMethod, setScrapingMethod] = useState('auto'); // 'auto' or 'manual'
+
+  // Check for saved auth token on component mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem('authToken');
+    if (savedToken) {
+      setAuthToken(savedToken);
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  // Configure axios with authentication headers
+  const getAuthHeaders = () => ({
+    'Authorization': `Bearer ${authToken}`,
+    'Content-Type': 'application/json'
+  });
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+
+    try {
+      const response = await axios.post(`${BACKEND_URL}/auth/verify`, {
+        password: password
+      });
+
+      if (response.data.success) {
+        setAuthToken(password);
+        setIsAuthenticated(true);
+        localStorage.setItem('authToken', password);
+        setAuthSuccess('Successfully authenticated!');
+        setTimeout(() => setAuthSuccess(''), 3000);
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || 'Authentication failed';
+      setAuthError(errorMessage);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setAuthToken('');
+    setPassword('');
+    localStorage.removeItem('authToken');
+    // Reset all app state
+    setBaseUrl('');
+    setDiscoveredCategories([]);
+    setResults('');
+    setStatus('');
+    setScrapingMethod('auto');
+  };
 
   const handleDiscoverCategories = async () => {
     if (!baseUrl) {
@@ -24,7 +86,10 @@ function App() {
     setDiscoveredCategories([]);
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/discover-categories`, { baseUrl });
+      const response = await axios.post(`${BACKEND_URL}/discover-categories`, 
+        { baseUrl }, 
+        { headers: getAuthHeaders() }
+      );
 
       if (response.data.success) {
         setDiscoveredCategories(response.data.categories);
@@ -34,7 +99,12 @@ function App() {
       }
     } catch (error) {
       console.error('Discovery error:', error);
-      setStatus('❌ Error: ' + (error.response?.data?.error || error.message));
+      if (error.response?.status === 401) {
+        setAuthError('Session expired. Please login again.');
+        handleLogout();
+      } else {
+        setStatus('❌ Error: ' + (error.response?.data?.error || error.message));
+      }
     } finally {
       setIsDiscovering(false);
     }
@@ -51,7 +121,10 @@ function App() {
     setResults('');
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/scrape-all`, { baseUrl });
+      const response = await axios.post(`${BACKEND_URL}/scrape-all`, 
+        { baseUrl }, 
+        { headers: getAuthHeaders() }
+      );
 
       console.log('Auto-scrape response:', response.data);
 
@@ -70,7 +143,12 @@ function App() {
       }
     } catch (error) {
       console.error('Auto-scraping error:', error);
-      setStatus('❌ Error: ' + (error.response?.data?.error || error.message));
+      if (error.response?.status === 401) {
+        setAuthError('Session expired. Please login again.');
+        handleLogout();
+      } else {
+        setStatus('❌ Error: ' + (error.response?.data?.error || error.message));
+      }
     } finally {
       setIsScrapingAll(false);
     }
@@ -120,156 +198,4 @@ function App() {
       subcategoryNames.forEach(subcategoryName => {
         const entries = categoryData.subcategories[subcategoryName];
         
-        if (!Array.isArray(entries) || entries.length === 0) {
-          return;
-        }
-        
-        const formattedEntries = entries.map(entry => {
-          let result = entry.name || 'Unknown';
-          
-          if (entry.club && entry.club.trim() !== '') {
-            result += `, ${entry.club}`;
-          }
-          
-          if (entry.placing && entry.placing.trim() !== '') {
-            result += `, ${entry.placing}`;
-          }
-          
-          if (entry.awards && entry.awards.trim() !== '') {
-            result += `, ${entry.awards}`;
-          }
-          
-          if (entry.ribbon && entry.ribbon.trim() !== '') {
-            result += ` - ${entry.ribbon}`;
-          }
-          
-          return result;
-        }).filter(entry => entry && entry !== 'Unknown');
-        
-        if (formattedEntries.length > 0) {
-          if (subcategoryName !== 'General') {
-            formatted += `${subcategoryName}: ${formattedEntries.join(' ; ')}\n`;
-          } else {
-            formatted += `${formattedEntries.join(' ; ')}\n`;
-          }
-        }
-      });
-      
-      formatted += '\n';
-    });
-    
-    return formatted;
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(results);
-    setStatus('✅ Results copied to clipboard!');
-  };
-
-  return (
-    <div className="App">
-      <div className="container">
-        <h1>🏆 Universal Fair Results Scraper</h1>
-        <p className="subtitle">Works with any FairEntry.com fair - automatically discovers all categories!</p>
-        
-        <div className="input-section">
-          <label>Fair Results URL:</label>
-          <input
-            type="text"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="Enter any FairEntry.com results URL (e.g., https://fairentry.com/Fair/Results/12345)"
-          />
-          
-          <div className="method-selector">
-            <h3>Scraping Method:</h3>
-            <div className="radio-group">
-              <label>
-                <input
-                  type="radio"
-                  value="auto"
-                  checked={scrapingMethod === 'auto'}
-                  onChange={(e) => setScrapingMethod(e.target.value)}
-                />
-                🤖 Auto-Scrape Everything (Recommended)
-                <span className="method-description">Automatically discovers and scrapes all categories</span>
-              </label>
-              
-              <label>
-                <input
-                  type="radio"
-                  value="manual"
-                  checked={scrapingMethod === 'manual'}
-                  onChange={(e) => setScrapingMethod(e.target.value)}
-                />
-                🎯 Manual Category Selection
-                <span className="method-description">Discover categories first, then choose which to scrape</span>
-              </label>
-            </div>
-          </div>
-
-          {scrapingMethod === 'auto' && (
-            <div className="auto-scrape-section">
-              <button 
-                onClick={handleScrapeAll} 
-                disabled={isScrapingAll || !baseUrl}
-                className="scrape-button auto-scrape"
-              >
-                {isScrapingAll ? '🔄 Auto-Scraping Entire Fair...' : '🚀 Auto-Scrape All Categories'}
-              </button>
-              <p className="note">This will automatically discover and scrape all available categories. May take 5-10 minutes for large fairs.</p>
-            </div>
-          )}
-
-          {scrapingMethod === 'manual' && (
-            <div className="manual-scrape-section">
-              <button 
-                onClick={handleDiscoverCategories} 
-                disabled={isDiscovering || !baseUrl}
-                className="discover-button"
-              >
-                {isDiscovering ? '🔍 Discovering...' : '🔍 Discover Available Categories'}
-              </button>
-
-              {discoveredCategories.length > 0 && (
-                <div className="discovered-categories">
-                  <h3>📋 Discovered Categories ({discoveredCategories.length}):</h3>
-                  <div className="category-list">
-                    {discoveredCategories.map((category, index) => (
-                      <div key={index} className="category-item-discovered">
-                        <span className="category-name">{category.displayName}</span>
-                        <span className="category-full">{category.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="note">Manual selection coming soon - for now use Auto-Scrape mode!</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        
-        {status && (
-          <div className={`status ${status.includes('❌') ? 'error' : 'success'}`}>
-            {status}
-          </div>
-        )}
-        
-        {results && results.trim() !== '' && (
-          <div className="results-section">
-            <h3>📄 Formatted Results for Newspaper:</h3>
-            <div className="results-stats">
-              <p>Results ready for copy/paste into your newspaper article!</p>
-            </div>
-            <pre className="results-output">{results}</pre>
-            <button onClick={copyToClipboard} className="copy-button">
-              📋 Copy to Clipboard
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default App;
+        if (!Array.
